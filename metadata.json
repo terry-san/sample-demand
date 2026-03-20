@@ -1,0 +1,5 @@
+{
+  "name": "Sample Demand Tracker",
+  "description": "A web application for tracking sample demand statistics based on region, series, model, and combined sample plan categories.",
+  "requestFramePermissions": []
+}

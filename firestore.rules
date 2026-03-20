@@ -1,0 +1,137 @@
+rules_version = '2';
+
+// ===============================================================
+// Assumed Data Model
+// ===============================================================
+//
+// Collection: sampleDemands
+// Document ID: auto-generated
+// Fields:
+//   - region: string (required, 1-50 chars)
+//   - series: string (required, 1-50 chars)
+//   - model: string (required, 1-100 chars)
+//   - combination: string (required, 1-200 chars)
+//   - demands: map (required)
+//     - EIT: map
+//       - TV set: number (0-1000)
+//       - SSB: number (0-1000)
+//       - PWR BD: number (0-1000)
+//       - RC: number (0-1000)
+//     - SVT: map
+//       - TV set: number (0-1000)
+//       - SSB: number (0-1000)
+//       - PWR BD: number (0-1000)
+//       - RC: number (0-1000)
+//   - userId: string (required, auth.uid)
+//   - createdAt: timestamp (required, server time)
+//   - updatedAt: timestamp (optional, server time)
+//   - updatedBy: string (optional, auth.uid)
+//
+// ===============================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        ((exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin') ||
+          (request.auth.token.email == "kwang0923@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    function isValidDemandValue(val) {
+      return val is number && val >= 0 && val <= 1000;
+    }
+
+    function isValidStageDemands(stageData) {
+      return stageData is map &&
+             isValidDemandValue(stageData['TV set']) &&
+             isValidDemandValue(stageData['SSB']) &&
+             isValidDemandValue(stageData['PWR BD']) &&
+             isValidDemandValue(stageData['RC']);
+    }
+
+    function isValidSampleDemand(data) {
+      return data.keys().hasAll(['region', 'series', 'model', 'combination', 'demands', 'userId', 'createdAt']) &&
+             data.keys().hasOnly(['region', 'series', 'model', 'combination', 'demands', 'userId', 'createdAt', 'updatedAt', 'updatedBy']) &&
+             data.region is string && data.region.size() > 0 && data.region.size() <= 50 &&
+             data.series is string && data.series.size() > 0 && data.series.size() <= 50 &&
+             data.model is string && data.model.size() > 0 && data.model.size() <= 100 &&
+             data.combination is string && data.combination.size() > 0 && data.combination.size() <= 200 &&
+             data.demands is map &&
+             isValidStageDemands(data.demands['EIT']) &&
+             isValidStageDemands(data.demands['SVT']) &&
+             data.userId is string &&
+             data.createdAt is timestamp &&
+             (!('updatedAt' in data) || data.updatedAt is timestamp) &&
+             (!('updatedBy' in data) || data.updatedBy is string);
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /sampleDemands/{demandId} {
+      // Allow all authenticated users to read (needed for existence check and collaborative dashboard)
+      allow read: if isAuthenticated();
+      
+      // Users can create their own demands
+      allow create: if isAuthenticated() && 
+                    isValidSampleDemand(request.resource.data) && 
+                    request.resource.data.userId == request.auth.uid &&
+                    request.resource.data.createdAt == request.time;
+      
+      // Users can update their own demands, or admins can update any
+      allow update: if isAuthenticated() && 
+                    isValidSampleDemand(request.resource.data) &&
+                    (isOwner(resource.data.userId) || isAdmin()) &&
+                    request.resource.data.userId == resource.data.userId && // userId should not change
+                    request.resource.data.createdAt == resource.data.createdAt && // createdAt should not change
+                    request.resource.data.updatedAt == request.time &&
+                    request.resource.data.updatedBy == request.auth.uid;
+
+      // Only admins can delete
+      allow delete: if isAdmin();
+    }
+
+    match /products/{productId} {
+      // Everyone authenticated can read products
+      allow read: if isAuthenticated();
+      // Only admins can write products
+      allow write: if isAdmin();
+    }
+
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow write: if isAdmin();
+    }
+
+    match /settings/{settingId} {
+      // Everyone authenticated can read settings (like planData)
+      allow read: if isAuthenticated();
+      // Only admins can write settings
+      allow write: if isAdmin();
+    }
+
+    match /test/{testId} {
+      // Allow read for connection test
+      allow read: if true;
+    }
+
+    match /{path=**} {
+      allow read, write: if false;
+    }
+  }
+}

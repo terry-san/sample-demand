@@ -1,0 +1,72 @@
+{
+  "entities": {
+    "SampleDemand": {
+      "title": "SampleDemand",
+      "description": "A record of sample demand for a specific model and configuration.",
+      "type": "object",
+      "properties": {
+        "region": {
+          "type": "string",
+          "description": "Region (e.g., BRA)"
+        },
+        "series": {
+          "type": "string",
+          "description": "Series (e.g., 7811)"
+        },
+        "model": {
+          "type": "string",
+          "description": "Model (e.g., 50PQG7811/77)"
+        },
+        "combination": {
+          "type": "string",
+          "description": "Combined sample plan (e.g., OBM+GPM+TPE+TPE+GPM)"
+        },
+        "demands": {
+          "type": "object",
+          "description": "Demand quantities for EIT and SVT stages across TV set, SSB, PWR BD, and RC."
+        },
+        "userId": {
+          "type": "string",
+          "description": "The UID of the user who created the record."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp when the record was created."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp when the record was last updated."
+        },
+        "updatedBy": {
+          "type": "string",
+          "description": "The UID of the user who last updated the record."
+        }
+      },
+      "required": ["region", "series", "model", "combination", "demands", "userId", "createdAt"]
+    },
+    "Product": {
+      "title": "Product",
+      "description": "A unique combination of region, series, and model managed by admins.",
+      "type": "object",
+      "properties": {
+        "region": { "type": "string" },
+        "series": { "type": "string" },
+        "model": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["region", "series", "model", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/sampleDemands/{demandId}": {
+      "schema": "SampleDemand",
+      "description": "Collection of sample demand records."
+    },
+    "/products/{productId}": {
+      "schema": "Product",
+      "description": "Collection of available products (Region/Series/Model combinations)."
+    }
+  }
+}
